@@ -1,0 +1,388 @@
+{% extends "base.html" %}
+
+{% block title %}Inventory List - Inventory Manager{% endblock %}
+
+{% block content %}
+
+<!-- Page Header -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h2 mb-1">
+            <i class="bi bi-clipboard2-data text-primary me-2"></i>Inventory Dashboard
+        </h1>
+        <p class="text-muted mb-0">Manage and track your inventory items</p>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{{ url_for('inventory.export_csv', search=search_term) }}"
+           class="btn btn-outline-success btn-lg">
+            <i class="bi bi-download me-2"></i>Export CSV
+        </a>
+        <a href="{{ url_for('inventory.add_item') }}" class="btn btn-primary btn-lg">
+            <i class="bi bi-plus-circle me-2"></i>Add New Item
+        </a>
+    </div>
+</div>
+
+<!-- Summary Statistics Cards -->
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card bg-primary text-white h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="card-text mb-1 opacity-75 small text-uppercase fw-semibold">
+                        Total Items
+                    </p>
+                    <p class="stat-value mb-0">{{ total_items }}</p>
+                </div>
+                <i class="bi bi-boxes stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card bg-success text-white h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="card-text mb-1 opacity-75 small text-uppercase fw-semibold">
+                        Total Value
+                    </p>
+                    <p class="stat-value mb-0">
+                        ${{ "%.2f"|format(total_value|float) }}
+                    </p>
+                </div>
+                <i class="bi bi-currency-dollar stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card bg-warning text-white h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="card-text mb-1 opacity-75 small text-uppercase fw-semibold">
+                        Low Stock
+                    </p>
+                    <p class="stat-value mb-0">{{ low_stock_count }}</p>
+                </div>
+                <i class="bi bi-exclamation-triangle stat-icon"></i>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-sm-6 col-xl-3">
+        <div class="card stat-card bg-danger text-white h-100">
+            <div class="card-body d-flex justify-content-between align-items-center">
+                <div>
+                    <p class="card-text mb-1 opacity-75 small text-uppercase fw-semibold">
+                        Out of Stock
+                    </p>
+                    <p class="stat-value mb-0">{{ out_of_stock_count }}</p>
+                </div>
+                <i class="bi bi-x-circle stat-icon"></i>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Search and Filter Controls -->
+<div class="card border-0 shadow-sm mb-4">
+    <div class="card-body">
+        <form method="GET" action="{{ url_for('inventory.index') }}" id="searchForm">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-5">
+                    <label for="search" class="form-label fw-semibold">
+                        <i class="bi bi-search me-1"></i>Search
+                    </label>
+                    <input type="text" 
+                           class="form-control" 
+                           id="search" 
+                           name="search"
+                           placeholder="Search by name, category, SKU, or description..."
+                           value="{{ search_term }}">
+                </div>
+                
+                <div class="col-md-3">
+                    <label for="sort_by" class="form-label fw-semibold">
+                        <i class="bi bi-sort-down me-1"></i>Sort By
+                    </label>
+                    <select class="form-select" id="sort_by" name="sort_by">
+                        <option value="created_at" {{ 'selected' if sort_by == 'created_at' }}>Date Added</option>
+                        <option value="name"       {{ 'selected' if sort_by == 'name' }}>Name</option>
+                        <option value="quantity"   {{ 'selected' if sort_by == 'quantity' }}>Quantity</option>
+                        <option value="price"      {{ 'selected' if sort_by == 'price' }}>Price</option>
+                        <option value="category"   {{ 'selected' if sort_by == 'category' }}>Category</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <label for="order" class="form-label fw-semibold">Order</label>
+                    <select class="form-select" id="order" name="order">
+                        <option value="desc" {{ 'selected' if order == 'desc' }}>Descending</option>
+                        <option value="asc"  {{ 'selected' if order == 'asc' }}>Ascending</option>
+                    </select>
+                </div>
+                
+                <div class="col-md-2">
+                    <div class="d-flex gap-2">
+                        <button type="submit" class="btn btn-primary flex-grow-1">
+                            <i class="bi bi-search me-1"></i>Search
+                        </button>
+                        {% if search_term %}
+                            <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">
+                                <i class="bi bi-x"></i>
+                            </a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Inventory Table -->
+<div class="card border-0 shadow-sm">
+    <div class="card-header bg-white border-0 d-flex justify-content-between align-items-center py-3">
+        <h5 class="mb-0 fw-semibold">
+            <i class="bi bi-table me-2 text-primary"></i>Inventory Items
+        </h5>
+        {% if search_term %}
+            <span class="badge bg-info">
+                <i class="bi bi-funnel me-1"></i>
+                Filtered: "{{ search_term }}" — {{ pagination.total }} result(s)
+            </span>
+        {% else %}
+            <span class="text-muted small">
+                Showing {{ items|length }} of {{ pagination.total }} items
+            </span>
+        {% endif %}
+    </div>
+
+    <div class="card-body p-0">
+        {% if items %}
+            <div class="table-responsive">
+                <table class="table table-hover mb-0 align-middle">
+                    <thead class="table-light">
+                        <tr>
+                            <th class="ps-4">#</th>
+                            <th>Item Name</th>
+                            <th>Category</th>
+                            <th>SKU</th>
+                            <th class="text-center">Quantity</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Total Value</th>
+                            <th class="text-center">Stock Status</th>
+                            <th>Date Added</th>
+                            <th class="text-center">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in items %}
+                        <tr>
+                            <td class="ps-4 text-muted small">{{ item.id }}</td>
+                            
+                            <td>
+                                <a href="{{ url_for('inventory.item_detail', item_id=item.id) }}"
+                                   class="fw-semibold text-decoration-none text-dark">
+                                    {{ item.name }}
+                                </a>
+                                {% if item.description %}
+                                    <div class="text-muted small text-truncate"
+                                         style="max-width: 200px;"
+                                         title="{{ item.description }}">
+                                        {{ item.description }}
+                                    </div>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% if item.category %}
+                                    <a href="{{ url_for('inventory.index', search=item.category) }}"
+                                       class="badge bg-light text-dark text-decoration-none border">
+                                        <i class="bi bi-tag me-1"></i>{{ item.category }}
+                                    </a>
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td>
+                                {% if item.sku %}
+                                    <code class="small text-secondary">{{ item.sku }}</code>
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="text-center">
+                                <span class="fw-semibold 
+                                    {% if item.quantity == 0 %}text-danger
+                                    {% elif item.quantity < 10 %}text-warning
+                                    {% else %}text-success
+                                    {% endif %}">
+                                    {{ item.quantity }}
+                                </span>
+                            </td>
+                            
+                            <td class="text-end">
+                                {% if item.price is not none %}
+                                    ${{ "%.2f"|format(item.price|float) }}
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="text-end fw-semibold">
+                                {% if item.price is not none %}
+                                    ${{ "%.2f"|format((item.price|float) * item.quantity) }}
+                                {% else %}
+                                    <span class="text-muted small">—</span>
+                                {% endif %}
+                            </td>
+                            
+                            <td class="text-center">
+                                <span class="badge bg-{{ item.stock_status_label }} badge-stock">
+                                    {% if item.stock_status == 'out_of_stock' %}
+                                        <i class="bi bi-x-circle me-1"></i>Out of Stock
+                                    {% elif item.stock_status == 'low_stock' %}
+                                        <i class="bi bi-exclamation-circle me-1"></i>Low Stock
+                                    {% else %}
+                                        <i class="bi bi-check-circle me-1"></i>In Stock
+                                    {% endif %}
+                                </span>
+                            </td>
+                            
+                            <td class="text-muted small">
+                                {% if item.created_at %}
+                                    {{ item.created_at.strftime('%b %d, %Y') }}
+                                {% endif %}
+                            </td>
+
+                            <td class="text-center">
+                                <div class="d-flex gap-1 justify-content-center">
+                                    <a href="{{ url_for('inventory.edit_item', item_id=item.id) }}"
+                                       class="btn btn-sm btn-outline-warning"
+                                       title="Edit {{ item.name }}">
+                                        <i class="bi bi-pencil"></i>
+                                    </a>
+                                    <button type="button"
+                                            class="btn btn-sm btn-outline-danger"
+                                            title="Delete {{ item.name }}"
+                                            data-bs-toggle="modal"
+                                            data-bs-target="#deleteModal-{{ item.id }}">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+
+                        <!-- Delete Confirmation Modal for item {{ item.id }} -->
+                        <div class="modal fade" id="deleteModal-{{ item.id }}" tabindex="-1" aria-hidden="true">
+                            <div class="modal-dialog modal-dialog-centered">
+                                <div class="modal-content">
+                                    <div class="modal-header border-0 pb-0">
+                                        <h5 class="modal-title text-danger">
+                                            <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Item
+                                        </h5>
+                                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                    </div>
+                                    <div class="modal-body pt-2">
+                                        <p>Are you sure you want to delete <strong>{{ item.name }}</strong>?</p>
+                                        <p class="text-muted small mb-0">This action cannot be undone.</p>
+                                    </div>
+                                    <div class="modal-footer border-0">
+                                        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                                            Cancel
+                                        </button>
+                                        <form method="POST" action="{{ url_for('inventory.delete_item', item_id=item.id) }}">
+                                            <button type="submit" class="btn btn-danger">
+                                                <i class="bi bi-trash me-1"></i>Yes, Delete
+                                            </button>
+                                        </form>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Pagination -->
+            {% if pagination.pages > 1 %}
+                <div class="d-flex justify-content-between align-items-center px-4 py-3 border-top">
+                    <div class="text-muted small">
+                        Page {{ pagination.page }} of {{ pagination.pages }}
+                        ({{ pagination.total }} total items)
+                    </div>
+                    <nav>
+                        <ul class="pagination pagination-sm mb-0">
+                            <li class="page-item {{ 'disabled' if not pagination.has_prev }}">
+                                <a class="page-link" 
+                                   href="{{ url_for('inventory.index', page=pagination.prev_num, search=search_term, sort_by=sort_by, order=order) }}">
+                                    <i class="bi bi-chevron-left"></i>
+                                </a>
+                            </li>
+                            
+                            {% for page_num in pagination.iter_pages(left_edge=2, right_edge=2, left_current=2, right_current=2) %}
+                                {% if page_num %}
+                                    <li class="page-item {{ 'active' if page_num == pagination.page }}">
+                                        <a class="page-link" 
+                                           href="{{ url_for('inventory.index', page=page_num, search=search_term, sort_by=sort_by, order=order) }}">
+                                            {{ page_num }}
+                                        </a>
+                                    </li>
+                                {% else %}
+                                    <li class="page-item disabled">
+                                        <span class="page-link">…</span>
+                                    </li>
+                                {% endif %}
+                            {% endfor %}
+                            
+                            <li class="page-item {{ 'disabled' if not pagination.has_next }}">
+                                <a class="page-link" 
+                                   href="{{ url_for('inventory.index', page=pagination.next_num, search=search_term, sort_by=sort_by, order=order) }}">
+                                    <i class="bi bi-chevron-right"></i>
+                                </a>
+                            </li>
+                        </ul>
+                    </nav>
+                </div>
+            {% endif %}
+
+        {% else %}
+            <!-- Empty State -->
+            <div class="empty-state">
+                <i class="bi bi-inbox"></i>
+                {% if search_term %}
+                    <h4>No items found for "{{ search_term }}"</h4>
+                    <p>Try a different search term or 
+                       <a href="{{ url_for('inventory.index') }}">clear the search</a>.
+                    </p>
+                {% else %}
+                    <h4>No inventory items yet</h4>
+                    <p class="mb-4">
+                        Your inventory is empty. Add your first item to get started!
+                    </p>
+                    <a href="{{ url_for('inventory.add_item') }}" class="btn btn-primary btn-lg">
+                        <i class="bi bi-plus-circle me-2"></i>Add Your First Item
+                    </a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-submit sort controls when changed
+    document.getElementById('sort_by').addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+    document.getElementById('order').addEventListener('change', function() {
+        document.getElementById('searchForm').submit();
+    });
+</script>
+{% endblock %}

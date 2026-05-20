@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+
+{% block title %}Edit {{ item.name }} — InventoryPro{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">
+            <i class="bi bi-pencil-square text-warning me-2"></i>Edit Item
+        </h1>
+        <p class="text-muted mb-0">Editing: <strong>{{ item.name }}</strong></p>
+    </div>
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Inventory
+    </a>
+</div>
+
+<!-- ── Edit Form Card ── -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-warning text-dark py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-clipboard-check me-2"></i>Item Details
+                    <small class="fw-normal ms-2 opacity-75">ID #{{ item.id }}</small>
+                </h5>
+            </div>
+
+            <div class="card-body p-4">
+
+                <form method="POST" action="{{ url_for('inventory.edit_item', item_id=item.id) }}"
+                      novalidate id="editItemForm">
+
+                    <!-- ── Row 1: Name + SKU ── -->
+                    <div class="row g-3 mb-3">
+
+                        <!-- Item Name (Required) -->
+                        <div class="col-md-8">
+                            <label for="name" class="form-label">
+                                Item Name <span class="text-danger" title="Required">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="name"
+                                name="name"
+                                class="form-control"
+                                value="{{ form_data.get('name', item.name) }}"
+                                maxlength="200"
+                                autofocus
+                                required
+                            >
+                        </div>
+
+                        <!-- SKU (Optional) -->
+                        <div class="col-md-4">
+                            <label for="sku" class="form-label">
+                                SKU <small class="text-muted">(optional)</small>
+                            </label>
+                            <input
+                                type="text"
+                                id="sku"
+                                name="sku"
+                                class="form-control"
+                                value="{{ form_data.get('sku', item.sku or '') }}"
+                                maxlength="100"
+                            >
+                            <div class="form-text">Unique product code (e.g., CHAIR-001)</div>
+                        </div>
+
+                    </div>
+
+                    <!-- ── Row 2: Quantity + Price + Category ── -->
+                    <div class="row g-3 mb-3">
+
+                        <!-- Quantity (Required) -->
+                        <div class="col-md-4">
+                            <label for="quantity" class="form-label">
+                                Quantity <span class="text-danger" title="Required">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-hash"></i>
+                                </span>
+                                <input
+                                    type="number"
+                                    id="quantity"
+                                    name="quantity"
+                                    class="form-control"
+                                    value="{{ form_data.get('quantity', item.quantity) }}"
+                                    min="0"
+                                    step="1"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Unit Price (Optional) -->
+                        <div class="col-md-4">
+                            <label for="price" class="form-label">
+                                Unit Price <small class="text-muted">(optional)</small>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input
+                                    type="number"
+                                    id="price"
+                                    name="price"
+                                    class="form-control"
+                                    value="{{ form_data.get('price', ('%.2f'|format(item.price|float)) if item.price is not none else '') }}"
+                                    min="0"
+                                    step="0.01"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Category (Optional) -->
+                        <div class="col-md-4">
+                            <label for="category" class="form-label">
+                                Category <small class="text-muted">(optional)</small>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-tag"></i>
+                                </span>
+                                <input
+                                    type="text"
+                                    id="category"
+                                    name="category"
+                                    class="form-control"
+                                    value="{{ form_data.get('category', item.category or '') }}"
+                                    maxlength="100"
+                                >
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ── Row 3: Description ── -->
+                    <div class="mb-4">
+                        <label for="description" class="form-label">
+                            Description <small class="text-muted">(optional)</small>
+                        </label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            class="form-control"
+                            rows="3"
+                        >{{ form_data.get('description', item.description or '') }}</textarea>
+                        <div class="form-text">Provide any additional details about this item.</div>
+                    </div>
+
+                    <!-- ── Metadata Info ── -->
+                    <div class="alert alert-light border small text-muted mb-4">
+                        <i class="bi bi-clock-history me-1"></i>
+                        Added on {{ item.created_at.strftime('%B %d, %Y') if item.created_at else '—' }}
+                        {% if item.updated_at and item.updated_at != item.created_at %}
+                            &mdash; Last updated {{ item.updated_at.strftime('%B %d, %Y') }}
+                        {% endif %}
+                    </div>
+
+                    <!-- ── Required Field Note ── -->
+                    <p class="text-muted small mb-4">
+                        <span class="text-danger">*</span> Indicates a required field.
+                    </p>
+
+                    <!-- ── Form Buttons ── -->
+                    <div class="d-flex gap-3 justify-content-between">
+                        <!-- Delete button on the left -->
+                        <button type="button" class="btn btn-outline-danger px-4"
+                                data-bs-toggle="modal" data-bs-target="#deleteModal">
+                            <i class="bi bi-trash me-1"></i>Delete Item
+                        </button>
+
+                        <div class="d-flex gap-3">
+                            <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary px-4">
+                                <i class="bi bi-x-circle me-1"></i>Cancel
+                            </a>
+                            <button type="submit" class="btn btn-warning px-5">
+                                <i class="bi bi-check-circle-fill me-2"></i>Save Changes
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ── Delete Confirmation Modal ── -->
+<div class="modal fade" id="deleteModal" tabindex="-1" aria-labelledby="deleteModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header border-0 pb-0">
+                <h5 class="modal-title text-danger" id="deleteModalLabel">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>Delete Item
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-2">
+                <p>Are you sure you want to delete <strong>{{ item.name }}</strong>?</p>
+                <p class="text-muted small mb-0">This action cannot be undone.</p>
+            </div>
+            <div class="modal-footer border-0">
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">
+                    Cancel
+                </button>
+                <form method="POST" action="{{ url_for('inventory.delete_item', item_id=item.id) }}">
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-trash me-1"></i>Yes, Delete
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}

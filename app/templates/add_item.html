@@ -1,0 +1,239 @@
+{% extends "base.html" %}
+
+{% block title %}Add Inventory Item — InventoryPro{% endblock %}
+
+{% block content %}
+
+<!-- ── Page Header ── -->
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 class="h3 fw-bold mb-1">
+            <i class="bi bi-plus-circle-fill text-primary me-2"></i>Add New Item
+        </h1>
+        <p class="text-muted mb-0">Fill in the details below to add a new item to your inventory.</p>
+    </div>
+    <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Inventory
+    </a>
+</div>
+
+<!-- ── Add Item Form Card ── -->
+<div class="row justify-content-center">
+    <div class="col-lg-8">
+        <div class="card shadow-sm">
+            <div class="card-header bg-primary text-white py-3">
+                <h5 class="mb-0">
+                    <i class="bi bi-clipboard-plus me-2"></i>Item Details
+                </h5>
+            </div>
+
+            <div class="card-body p-4">
+
+                <form method="POST" action="{{ url_for('inventory.add_item') }}"
+                      novalidate id="addItemForm">
+
+                    <!-- ── Row 1: Name + SKU ── -->
+                    <div class="row g-3 mb-3">
+
+                        <!-- Item Name (Required) -->
+                        <div class="col-md-8">
+                            <label for="name" class="form-label">
+                                Item Name <span class="text-danger" title="Required">*</span>
+                            </label>
+                            <input
+                                type="text"
+                                id="name"
+                                name="name"
+                                class="form-control"
+                                value="{{ form_data.get('name', '') }}"
+                                maxlength="200"
+                                autofocus
+                                required
+                            >
+                        </div>
+
+                        <!-- SKU (Optional) -->
+                        <div class="col-md-4">
+                            <label for="sku" class="form-label">
+                                SKU <small class="text-muted">(optional)</small>
+                            </label>
+                            <input
+                                type="text"
+                                id="sku"
+                                name="sku"
+                                class="form-control"
+                                value="{{ form_data.get('sku', '') }}"
+                                maxlength="100"
+                            >
+                            <div class="form-text">Unique product code (e.g., CHAIR-001)</div>
+                        </div>
+
+                    </div>
+
+                    <!-- ── Row 2: Quantity + Price + Category ── -->
+                    <div class="row g-3 mb-3">
+
+                        <!-- Quantity (Required) -->
+                        <div class="col-md-4">
+                            <label for="quantity" class="form-label">
+                                Quantity <span class="text-danger" title="Required">*</span>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-hash"></i>
+                                </span>
+                                <input
+                                    type="number"
+                                    id="quantity"
+                                    name="quantity"
+                                    class="form-control"
+                                    value="{{ form_data.get('quantity', '0') }}"
+                                    min="0"
+                                    step="1"
+                                    required
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Unit Price (Optional) -->
+                        <div class="col-md-4">
+                            <label for="price" class="form-label">
+                                Unit Price <small class="text-muted">(optional)</small>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">$</span>
+                                <input
+                                    type="number"
+                                    id="price"
+                                    name="price"
+                                    class="form-control"
+                                    value="{{ form_data.get('price', '') }}"
+                                    min="0"
+                                    step="0.01"
+                                >
+                            </div>
+                        </div>
+
+                        <!-- Category (Optional) -->
+                        <div class="col-md-4">
+                            <label for="category" class="form-label">
+                                Category <small class="text-muted">(optional)</small>
+                            </label>
+                            <div class="input-group">
+                                <span class="input-group-text">
+                                    <i class="bi bi-tag"></i>
+                                </span>
+                                <input
+                                    type="text"
+                                    id="category"
+                                    name="category"
+                                    class="form-control"
+                                    value="{{ form_data.get('category', '') }}"
+                                    maxlength="100"
+                                >
+                            </div>
+                        </div>
+
+                    </div>
+
+                    <!-- ── Row 3: Description ── -->
+                    <div class="mb-4">
+                        <label for="description" class="form-label">
+                            Description <small class="text-muted">(optional)</small>
+                        </label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            class="form-control"
+                            rows="3"
+                        >{{ form_data.get('description', '') }}</textarea>
+                        <div class="form-text">Provide any additional details about this item.</div>
+                    </div>
+
+                    <!-- ── Live Preview Card ── -->
+                    <div class="card bg-light border-secondary mb-4" id="previewCard"
+                         style="display:none !important;">
+                        <div class="card-header text-muted small fw-semibold">
+                            <i class="bi bi-eye me-1"></i>Preview
+                        </div>
+                        <div class="card-body small">
+                            <div class="row">
+                                <div class="col-6">
+                                    <strong>Name:</strong>
+                                    <span id="preview-name" class="text-primary">—</span>
+                                </div>
+                                <div class="col-3">
+                                    <strong>Qty:</strong>
+                                    <span id="preview-qty">—</span>
+                                </div>
+                                <div class="col-3">
+                                    <strong>Price:</strong>
+                                    <span id="preview-price">—</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ── Required Field Note ── -->
+                    <p class="text-muted small mb-4">
+                        <span class="text-danger">*</span> Indicates a required field.
+                    </p>
+
+                    <!-- ── Form Buttons ── -->
+                    <div class="d-flex gap-3 justify-content-end">
+                        <a href="{{ url_for('inventory.index') }}" class="btn btn-outline-secondary px-4">
+                            <i class="bi bi-x-circle me-1"></i>Cancel
+                        </a>
+                        <button type="reset" class="btn btn-outline-warning px-4">
+                            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset
+                        </button>
+                        <button type="submit" class="btn btn-primary px-5">
+                            <i class="bi bi-check-circle-fill me-2"></i>Add Item
+                        </button>
+                    </div>
+
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+/**
+ * Live preview — updates the preview card as the user types
+ * in the Name, Quantity, and Price fields.
+ */
+(function () {
+    const nameField   = document.getElementById('name');
+    const qtyField    = document.getElementById('quantity');
+    const priceField  = document.getElementById('price');
+    const previewCard = document.getElementById('previewCard');
+
+    const previewName  = document.getElementById('preview-name');
+    const previewQty   = document.getElementById('preview-qty');
+    const previewPrice = document.getElementById('preview-price');
+
+    function updatePreview() {
+        const name  = nameField.value.trim();
+        const qty   = qtyField.value;
+        const price = parseFloat(priceField.value);
+
+        if (name || qty || !isNaN(price)) {
+            previewCard.style.removeProperty('display');
+            previewName.textContent  = name  || '—';
+            previewQty.textContent   = qty   || '—';
+            previewPrice.textContent = !isNaN(price) ? `$${price.toFixed(2)}` : '—';
+        } else {
+            previewCard.style.setProperty('display', 'none', 'important');
+        }
+    }
+
+    [nameField, qtyField, priceField].forEach(field => {
+        field.addEventListener('input', updatePreview);
+    });
+})();
+</script>
+{% endblock extra_js %}
