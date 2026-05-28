@@ -412,3 +412,68 @@ def api_list_items():
         'has_next': paginated.has_next,
         'has_prev': paginated.has_prev,
     })
+
+
+@inventory_bp.route('/api/items/<int:item_id>/adjust_stock', methods=['POST'])
+def api_adjust_stock(item_id):
+    """
+    Adjust an item's stock by a signed delta.
+
+    Used by external services (e.g., sales-service Lambda) to record sales
+    (negative delta) or purchases (positive delta).
+
+    Body:
+        {"delta": <int>, "reason": "<optional string>"}
+
+    Responses:
+        200: Stock updated. Returns previous/new quantity.
+        400: Invalid request body or delta.
+        404: Item not found.
+        409: Insufficient stock (would result in negative quantity).
+        500: Database error.
+    """
+    item = db.session.get(InventoryItem, item_id)
+    if item is None:
+        return jsonify({'error': 'Item not found', 'item_id': item_id}), 404
+
+    data = request.get_json(silent=True)
+    if data is None or 'delta' not in data:
+        return jsonify({
+            'error': 'Request body must be JSON with a "delta" field',
+        }), 400
+
+    try:
+        delta = int(data['delta'])
+    except (TypeError, ValueError):
+        return jsonify({'error': '"delta" must be an integer'}), 400
+
+    if delta == 0:
+        return jsonify({'error': '"delta" cannot be zero'}), 400
+
+    previous_quantity = item.quantity
+    new_quantity = previous_quantity + delta
+
+    if new_quantity < 0:
+        return jsonify({
+            'error': 'Insufficient stock',
+            'item_id': item.id,
+            'current_quantity': previous_quantity,
+            'requested_delta': delta,
+        }), 409
+
+    try:
+        item.quantity = new_quantity
+        db.session.commit()
+    except Exception as e:
+        db.session.rollback()
+        return jsonify({'error': 'Database error', 'detail': str(e)}), 500
+
+    return jsonify({
+        'item_id': item.id,
+        'name': item.name,
+        'previous_quantity': previous_quantity,
+        'delta': delta,
+        'new_quantity': new_quantity,
+        'stock_status': item.stock_status,
+        'reason': data.get('reason'),
+    }), 200

@@ -238,6 +238,88 @@ class TestAPIListItems:
 
 
 # ─────────────────────────────────────────────
+# API — /api/items/<id>/adjust_stock
+# ─────────────────────────────────────────────
+
+class TestAPIAdjustStock:
+    def test_sale_decrements_stock(self, client, app, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': -3, 'reason': 'sale'},
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['previous_quantity'] == 50
+        assert data['new_quantity'] == 47
+        assert data['delta'] == -3
+        assert data['reason'] == 'sale'
+
+        with app.app_context():
+            assert db.session.get(InventoryItem, sample_item.id).quantity == 47
+
+    def test_purchase_increments_stock(self, client, app, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': 25, 'reason': 'purchase'},
+        )
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data['new_quantity'] == 75
+
+        with app.app_context():
+            assert db.session.get(InventoryItem, sample_item.id).quantity == 75
+
+    def test_item_not_found(self, client):
+        response = client.post('/api/items/99999/adjust_stock', json={'delta': 1})
+        assert response.status_code == 404
+
+    def test_missing_body(self, client, sample_item):
+        response = client.post(f'/api/items/{sample_item.id}/adjust_stock')
+        assert response.status_code == 400
+
+    def test_missing_delta_field(self, client, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'reason': 'no delta here'},
+        )
+        assert response.status_code == 400
+
+    def test_delta_not_integer(self, client, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': 'abc'},
+        )
+        assert response.status_code == 400
+
+    def test_delta_zero_rejected(self, client, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': 0},
+        )
+        assert response.status_code == 400
+
+    def test_insufficient_stock(self, client, app, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': -999},  # would drop quantity below zero
+        )
+        assert response.status_code == 409
+        data = response.get_json()
+        assert data['current_quantity'] == 50
+
+        with app.app_context():
+            assert db.session.get(InventoryItem, sample_item.id).quantity == 50
+
+    def test_response_includes_stock_status(self, client, sample_item):
+        response = client.post(
+            f'/api/items/{sample_item.id}/adjust_stock',
+            json={'delta': -50},  # drops to 0 → out_of_stock
+        )
+        assert response.status_code == 200
+        assert response.get_json()['stock_status'] == 'out_of_stock'
+
+
+# ─────────────────────────────────────────────
 # Health Check
 # ─────────────────────────────────────────────
 
