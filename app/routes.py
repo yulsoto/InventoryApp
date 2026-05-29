@@ -5,6 +5,7 @@ Defines URL routes and view functions for the inventory application.
 
 import csv
 import io
+from datetime import datetime, timezone
 from flask import (
     Blueprint,
     render_template,
@@ -477,3 +478,36 @@ def api_adjust_stock(item_id):
         'stock_status': item.stock_status,
         'reason': data.get('reason'),
     }), 200
+
+
+@inventory_bp.route('/api/items/<int:item_id>/velocity', methods=['GET'])
+def api_item_velocity(item_id):
+    """
+    Returns the sales velocity of an item — units sold per day since creation.
+    Useful for forecasting and spotting slow vs fast movers.
+    """
+    item = db.session.get(InventoryItem, item_id)
+    if item is None:
+        return jsonify({'error': 'Item not found', 'item_id': item_id}), 404
+
+    now = datetime.now(timezone.utc)
+    days_old = (now - item.created_at).days
+
+    total_sold = db.session.execute(
+        db.text(
+            "SELECT COALESCE(SUM(quantity), 0) FROM sales "
+            "WHERE item_id = :id AND transaction_type = 'sale'"
+        ),
+        {'id': item_id},
+    ).scalar()
+
+    velocity = total_sold / days_old
+
+    return jsonify({
+        'item_id': item.id,
+        'name': item.name,
+        'created_at': item.created_at.isoformat(),
+        'days_in_inventory': days_old,
+        'total_units_sold': int(total_sold),
+        'avg_daily_velocity': round(float(velocity), 2),
+    })

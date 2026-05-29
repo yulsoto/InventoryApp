@@ -320,6 +320,16 @@ class TestAPIAdjustStock:
 
 
 # ─────────────────────────────────────────────
+# API — /api/items/<id>/velocity
+# ─────────────────────────────────────────────
+
+class TestAPIVelocity:
+    def test_velocity_item_not_found(self, client):
+        response = client.get('/api/items/99999/velocity')
+        assert response.status_code == 404
+
+
+# ─────────────────────────────────────────────
 # Health Check
 # ─────────────────────────────────────────────
 
